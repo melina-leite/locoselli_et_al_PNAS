@@ -1,0 +1,210 @@
+---
+title: "Locosselli et al. PNAS modeling analysis"
+author: "Melina Leite"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: false
+  pdf_document:
+    highlight: tango
+    toc: yes
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=F}
+library(knitr);
+#library(ape); library(phytools)
+
+
+opts_chunk$set(fig.align = 'center', warning = F, message = F, error = F)
+options(formatR.arrow = TRUE, width = 90)
+```
+
+```{r}
+# libraries
+library(MCMCglmm); library(coda)
+library(parallel)
+library(phytools); library(brranching); library(ape)
+library(dplyr)
+```
+
+# Dataset
+
+```{r}
+df <- read.csv("data/dataset.csv")
+str(df)
+```
+
+Columns information/metadata:
+
+- zone: global climatic zone  
+- ID: identity of the observation data  
+- fam: Family name  
+- taxagroup: taxonomical group, Conifer or Eudicot  
+- species: Species name  
+- longevity: recorde maximum longevity  
+- growth: recorder growth  
+- densityCHAVE: wood density  
+- human.influ: Human influence index  
+- tseas:  temperature seasonality
+- moistwetq: water-balance soil moisture index of the wettest quarter of the year  
+- low.w.rad: lowest weekly radiation  
+- temp: mean annual temperature  
+- moistdq:moisture index of the driest quarter   
+- cloud: cloud cover  
+- soil_class: soil classification
+- alt.group: separation of the populations in "High altitude" and "Lowland"  
+- phylo: Species names used to match the phylogenetic tree  
+
+Standardizing numeric variables:
+```{r}
+data <- df %>% mutate_at(vars(8:15), scale)
+```
+
+
+## Phylogeny
+
+The phylogenetic tree was constructed using the Phylomatic software (Webb et al. 2008) based on a revised vascular megatree (Gastauer & Meira-Neto 2016). We estimated the ancestral values of longevity and growth at internal nodes using maximum likelihood under the assumption of Brownian motion for trait evolution (Revel 2013). 
+Auxiliary packages used: `phytools`, `brranching` and `ape`.
+
+```{r}
+filo <- read.tree("data/phylogenetic_tree.new")
+```
+
+Inverse phylogenetic matrix to be used in the model
+```{r}
+inv.phylo <- inverseA(filo, nodes = "TIPS", scale = FALSE)
+```
+
+# Model 1
+
+Code of the bivariate phylogenetic linear mixed model with the packages `MCMCglmm` and `coda`.
+
+The model takes long yours (or days) to run. The final version was stored to be loaded:
+```{r}
+load("model_output/modelResults.Rdata")
+```
+
+Prior specification for the random effects and residuals
+
+```{r, eval=F}
+prior <- list(R = list(V = diag(2), nu = 1.002),
+               G = list(G1 = list(V = diag(2), nu = 1.002), # phylogeny
+                        G2 = list(V = diag(2), nu = 1.002), # species
+                        G3 = list(V = diag(2), nu = 1.002))) # soil_class
+```
+
+Model
+```{r, eval = F}
+mod <- MCMCglmm(cbind(log(longevity), log(growth)) ~ trait
+        + trait:human.influ
+        + trait:densityCHAVE 
+        + trait:moistwetq + trait:temp + trait:moistdq
+        + trait:tseas + trait:low.w.rad + trait:cloud - 1,
+        random = ~ us(trait):phylo + us(trait):species + idh(trait):soil_class,
+        rcov = ~ us(trait):units,
+        family = c("gaussian", "gaussian"), 
+        ginverse = list(phylo = inv.phylo$Ainv),
+        prior = prior, data = data, pr = TRUE,
+        nitt = 1000000, burnin = 10000, thin = 200)
+```
+
+Model summary
+```{r}
+summary(mod)
+```
+
+## Gelman-Rubin criteria of convergence (4 chains)
+
+4 chains of the model previously ran to make the diagnose of the convergence of the chain:
+```{r, echo=F}
+load("model_output/modelResults_4chains.Rdata") 
+mcov4 <- p1.4.sol
+mcov4.var <- p1.4.var
+```
+
+```{r}
+gelman.diag(mcov4[,1:18])
+```
+
+## Trace and density plots for fixed effects
+```{r}
+par(mfrow=c(4,2), mar=c(2, 1, 1, 1))
+plot(mcov4[,1:18], ask=F, auto.layout=F)
+```
+
+## Trace and density plots for random effects
+```{r}
+par(mfrow=c(4,2), mar=c(2, 1, 1, 1))
+plot(mcov4.var, ask=F, auto.layout=F)
+```
+
+# Model 2 lowland
+
+Subsetting data:
+```{r}
+datalow <- data[data$alt.group == "Lowland" & df$temp >=20, ]
+```
+
+
+Prior specification for the random effects and residuals
+
+```{r, eval=F}
+prior <- list(R = list(V = diag(2), nu = 1.002),
+               G = list(G1 = list(V = diag(2), nu = 1.002), # phylogeny
+                        G2 = list(V = diag(2), nu = 1.002), # species
+                        G3 = list(V = diag(2), nu = 1.002))) # soil_class
+```
+
+Model
+```{r, eval=F}
+mod.low20 <- MCMCglmm(cbind(log(longevity), log(growth)) ~ trait +
+                      + trait:temp + trait:temp2 + trait:temp3 - 1,
+                      random = ~ us(trait):phylo + us(trait):species + idh(trait):soil_class,
+                      rcov = ~ us(trait):units,
+                      family = c("gaussian", "gaussian"), ginverse = list(phylo = inv.phylo$Ainv),
+                      prior = prior, data = datalow, pr = TRUE,
+                      nitt = 100000, burnin = 10000, thin = 200)
+```
+
+Model's results previoulsy ran:
+```{r}
+load("model_output/modelResult_lowland.Rdata")
+```
+
+Model summary
+```{r}
+summary(mod.low20)
+```
+
+## Trace and density plots for fixed effects
+
+```{r}
+par(mfrow=c(4,2), mar=c(2, 1, 1, 1))
+plot(mod.low20$Sol[,1:8], ask=F, auto.layout=F)
+```
+
+## Trace and density plots for random effects
+
+```{r}
+par(mfrow=c(4,2), mar=c(2, 1, 1, 1))
+plot(mod.low20$VCV, ask=F, auto.layout=F)
+```
+
+
+# Session Information
+```{r}
+sessionInfo()
+```
+
+# References
+
+Webb C.O., D. D. Akerly, S. W. Kembel, Phylocom: software for the analysis of phylogenetic community structure and character evolution. Bioinformatics, 24, 2098-2100. http://dx.doi.org/10.1093/bioinformatics/btn358. PMid:18678590 (2008).
+
+Gastauer,M., J. A. A. Meira-Neto, An enhanced calibration of a recently released megatree for the analysis of phylogenetic diversity. Brazilian Journal of Biology, 76(3), 619-628 (2016).
+
+Revell, L.J. Two new graphical methods for mapping trait evolution on phylogenies. Methods in Ecology and Evolution 4, 754–759 (2013).
+
