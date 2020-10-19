@@ -8,7 +8,7 @@ Metadata of DATA.xlsx:
 
 Variables:
 
-- Population #	= 	Identification number of the population of trees.  
+- Population #	= 	Number of the population of trees.  
 - Latitude	=	Site latitude in decimals.  
 - Longitude 	=	Site longitude in decimals.  
 - Altitude	=	Site altitude above sea level in meters.  
@@ -24,6 +24,7 @@ Variables:
 - MoistDQ	=	Moisture of the driest quarter of the year (three driest months)  
 - MoistWQ	=	Moisture of the wettest quarter of the year (three wettest months)  
 - Lowest_weekly_radiation	=	Lowest weekly radiation (W/m2)  
-- Meand Cloud Cover (year)	= 	Mean cloud cover (%*10) 
+- Meand Cloud Cover (year)	= 	Mean cloud cover (%*10)  
 - Density Chave	=	Wood density (g/cm3)  
 - Human influence	=	Global human influence index  
+- Soil_Class	=	Classes of soil  
