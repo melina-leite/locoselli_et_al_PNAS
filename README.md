@@ -4,7 +4,7 @@ Data and modeling analysis for the paper Locoselli et al. PNAS
 When using this data, please cite: Locosselli et al. 2020 Global tree-ring analysis reveals rapid decrease in tropical tree longevity with temperature. Proceedings of the National Academy of Sciences, and the references therein.
 
 
-Metadata of DATA.xlsx:
+Metadata of DATA_Locosselli_et_al_2020_PNAS.xlsx:
 
 Variables:
 
